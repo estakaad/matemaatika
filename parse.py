@@ -9,7 +9,7 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
 
     for index, row in df.iterrows():
         concept_dict = {}
-        concept_dict['datasetCode'] = 'mat'
+        concept_dict['datasetCode'] = 'mat-test'
         concept_dict['domain'] = {
             "value": "MA",
             "origin": "lenoch"
@@ -100,7 +100,11 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
 
         if len(et_terms) > 1 and pd.notna(row['LEXEMENOTE ET']):
             print(et_terms)
-            notes.append({"lang": "est", "value": row['LEXEMENOTE ET']})
+            if len(words) > 0:  # Check if 'words' list is not empty
+                if "lexemeNotes" in words[0]:  # Check if 'lexemeNotes' already exists in the first word
+                    words[0]["lexemeNotes"].append({"lang": "est", "value": row['LEXEMENOTE ET']})
+                else:
+                    words[0]["lexemeNotes"] = [{"lang": "est", "value": row['LEXEMENOTE ET']}]
 
         # J	TERM EN 1	Ingliskeelne termin
         # K	TERM EN 2	Ingliskeelne termin
@@ -110,12 +114,18 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
         en_terms = [row['TERM EN 1'], row['TERM EN 2'], row['TERM EN 3']]
         en_terms = [term for term in en_terms if pd.notna(term)]
 
+        for term in en_terms:
+            words.append(create_word(term, "eng", None))
+
         # P	TERM RU 1	Venekeelne termin
         # Q	TERM RU 2	Venekeelne termin
         # R	TERM RU 3	Venekeelne termin
 
         ru_terms = [row['TERM RU 1'], row['TERM RU 2'], row['TERM RU 3']]
         ru_terms = [term for term in ru_terms if pd.notna(term)]
+
+        for term in ru_terms:
+            words.append(create_word(term, "rus", None))
 
         # conceptIds[]
         # A
