@@ -1,145 +1,77 @@
 import pandas as pd
+from dataclasses import asdict
+from data_classes import Concept, Domain, Definition, Note, Word, Lexemenote
 import json
+
 
 def parse_excel(excel_filename, concepts_without_ids_filename):
     df = pd.read_excel(excel_filename)
-    print(df.columns)
 
     list_of_concepts = []
 
     for index, row in df.iterrows():
-        concept_dict = {}
-        concept_dict['datasetCode'] = 'mat-test'
-        concept_dict['domain'] = {
-            "value": "MA",
-            "origin": "lenoch"
-        }
+        # Domains
+        domain = Domain(code="MA", origin="lenoch")
 
+        # Definitions
         definitions = []
+        for lang_code, lang in [("ET", "est"), ("EN", "eng"), ("RU", "rus")]:
+            for i in range(1, 3):
+                def_key = f"DEF {lang_code} {i}"
+                if pd.notna(row[def_key]):
+                    definitions.append(Definition(value=row[def_key], lang=lang, definitionTypeCode="definitsioon"))
+
+        # Notes
         notes = []
+        for note_index in range(1, 3):
+            note_key = f"NOTE {note_index}"
+            if pd.notna(row[note_key]):
+                notes.append(Note(value=row[note_key], lang="est", publicity=False))
+
+        # Words
         words = []
-        conceptIds = []
+        for lang_code, lang in [("ET", "est"), ("EN", "eng"), ("RU", "rus")]:
+            term_range = range(1, 4) if lang_code == "RU" else range(1, 5)
 
-        # definitions[]
-        def create_definition(def_value, lang):
-            return {
-                "value": def_value,
-                "lang": lang,
-                "definitionTypeCode": "definitsioon"
-            }
+            terms = [row[f"TERM {lang_code} {i}"].strip() for i in term_range if pd.notna(row[f"TERM {lang_code} {i}"])]
+            terms = [term for term in terms if term]  # This will filter out empty strings as well
 
-        # G	DEF ET 1	Eestikeelne definitsioon
-        # H	DEF ET 2	Eestikeelne definitsioon
+            lexemenote = None
+            if lang_code == "ET" and len(terms) == 1:
+                lexemenote_value = row.get(f'LEXEMENOTE {lang_code}', None)
+                if pd.notna(lexemenote_value):
+                    lexemenote = Lexemenote(value=lexemenote_value.strip(), lang=lang, publicity=True)
 
-        et_defs = [row['DEF ET 1'], row['DEF ET 2']]
-        et_defs = [definition for definition in et_defs if pd.notna(definition)]
-        for definition in et_defs:
-            definitions.append(create_definition(definition, "est"))
+            for term in terms:
+                if term:  # Check if the term is not an empty string
+                    word = Word(value=term, lang=lang, lexemePublicity=True)
+                    if lexemenote:
+                        word.lexemeNotes.append(lexemenote)
+                    words.append(word)
 
-        # N	DEF EN 1	Ingliskeelne definitsioon
-        # O	DEF EN 2	Ingliskeelne definitsioon
-
-        en_defs = [row['DEF EN 1'], row['DEF EN 2']]
-        en_defs = [definition for definition in en_defs if pd.notna(definition)]
-        for definition in en_defs:
-            definitions.append(create_definition(definition, "eng"))
-
-        # U	DEF RU 1	Venekeelne definitsioon
-        # V	DEF RU 2	Venekeelne definitsioon
-
-        ru_defs = [row['DEF RU 1'], row['DEF RU 2']]
-        ru_defs = [definition for definition in ru_defs if pd.notna(definition)]
-        for definition in ru_defs:
-            definitions.append(create_definition(definition, "rus"))
-
-        # notes[]
-        # W	NOTE 1	Mitteavalik mõiste märkus
-        # Y	NOTE 2	Mitteavalik mõiste märkus
-
-        if pd.notna([row['NOTE 1']]):
-            notes.append(
-                {
-                    "value": row['NOTE 1'],
-                    "lang": "est",
-                    "publicity": False
-                }
-            )
-
-        if pd.notna([row['NOTE 2']]):
-            notes.append(
-                {
-                    "value": row['NOTE 2'],
-                    "lang": "est",
-                    "publicity": False
-                }
-            )
-
-        # words[]
-
-        def create_word(term, lang, lexemenote):
-            word_dict = {
-                "value": term.strip(),
-                "lang": lang,
-                "lexemePublicity": True
-            }
-
-            if pd.notna(lexemenote):
-                word_dict["lexemeNotes"] = [lexemenote]
-
-            return word_dict
-
-        # B TERM ET 1   Eestikeelne termin	Kui väärtus puudub, siis ei salvestata midagi
-        # C	TERM ET 2   Eestikeelne termin	Kui väärtus puudub, siis ei salvestata midagi
-        # D	TERM ET 3   Eestikeelne termin	Kui väärtus puudub, siis ei salvestata midagi
-        # E	TERM ET 4   Eestikeelne termin	Kui väärtus puudub, siis ei salvestata midagi
-
-        et_terms = [row['TERM ET 1'], row['TERM ET 2'], row['TERM ET 3'], row['TERM ET 4']]
-        et_terms = [term for term in et_terms if pd.notna(term)]
-        for term in et_terms:
-            words.append(create_word(term, "est", row['LEXEMENOTE ET'] if len(et_terms) == 1 else None))
-
-        if len(et_terms) > 1 and pd.notna(row['LEXEMENOTE ET']):
-            print(et_terms)
-            if len(words) > 0:  # Check if 'words' list is not empty
-                if "lexemeNotes" in words[0]:  # Check if 'lexemeNotes' already exists in the first word
-                    words[0]["lexemeNotes"].append({"lang": "est", "value": row['LEXEMENOTE ET']})
-                else:
-                    words[0]["lexemeNotes"] = [{"lang": "est", "value": row['LEXEMENOTE ET']}]
-
-        # J	TERM EN 1	Ingliskeelne termin
-        # K	TERM EN 2	Ingliskeelne termin
-        # L	TERM EN 3	Ingliskeelne termin
-        # M	TERM EN 4	Ingliskeelne termin
-
-        en_terms = [row['TERM EN 1'], row['TERM EN 2'], row['TERM EN 3']]
-        en_terms = [term for term in en_terms if pd.notna(term)]
-
-        for term in en_terms:
-            words.append(create_word(term, "eng", None))
-
-        # P	TERM RU 1	Venekeelne termin
-        # Q	TERM RU 2	Venekeelne termin
-        # R	TERM RU 3	Venekeelne termin
-
-        ru_terms = [row['TERM RU 1'], row['TERM RU 2'], row['TERM RU 3']]
-        ru_terms = [term for term in ru_terms if pd.notna(term)]
-
-        for term in ru_terms:
-            words.append(create_word(term, "rus", None))
-
-        # conceptIds[]
-        # A
-        # Kui väärtus puudub, siis ei salvestata midagi
-
+        # Concept IDs
+        concept_ids = []
         if pd.notna(row['CONCEPT_ID']):
-            conceptIds.append(row['CONCEPT_ID'])
+            concept_ids.append(row['CONCEPT_ID'])
 
-        concept_dict['definitions'] = definitions
-        concept_dict['notes'] = notes
-        concept_dict['words'] = words
-        concept_dict['conceptIds'] = conceptIds
+        # Creating Concept instance
+        concept = Concept(
+            datasetCode='mat-test',
+            manualEventOn=None,  # Fill in appropriately if data is available
+            manualEventBy=None,  # Fill in appropriately if data is available
+            firstCreateEventOn=None,  # Fill in appropriately if data is available
+            firstCreateEventBy=None,  # Fill in appropriately if data is available
+            domains=[domain],
+            definitions=definitions,
+            notes=notes,
+            forums=[],  # If you have forum data, process it similar to other fields
+            words=words,
+            conceptIds=concept_ids
+        )
 
-        list_of_concepts.append(concept_dict)
+        list_of_concepts.append(concept)
 
+    # Serializing to JSON
+    concepts_dict = [asdict(concept) for concept in list_of_concepts]
     with open(concepts_without_ids_filename, "w", encoding='utf-8') as f:
-        json.dump(list_of_concepts, f, ensure_ascii=False, indent=4)
+        json.dump(concepts_dict, f, ensure_ascii=False, indent=4)
