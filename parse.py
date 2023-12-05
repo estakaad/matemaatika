@@ -1,6 +1,7 @@
 import pandas as pd
 from dataclasses import asdict
 from data_classes import Concept, Domain, Definition, Note, Word, Lexemenote
+from collections import defaultdict
 import json
 
 
@@ -57,14 +58,14 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
         # Creating Concept instance
         concept = Concept(
             datasetCode='mat-test',
-            manualEventOn=None,  # Fill in appropriately if data is available
-            manualEventBy=None,  # Fill in appropriately if data is available
-            firstCreateEventOn=None,  # Fill in appropriately if data is available
-            firstCreateEventBy=None,  # Fill in appropriately if data is available
+            manualEventOn=None,
+            manualEventBy=None,
+            firstCreateEventOn=None,
+            firstCreateEventBy=None,
             domains=[domain],
             definitions=definitions,
             notes=notes,
-            forums=[],  # If you have forum data, process it similar to other fields
+            forums=[],
             words=words,
             conceptIds=concept_ids
         )
@@ -75,3 +76,44 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
     concepts_dict = [asdict(concept) for concept in list_of_concepts]
     with open(concepts_without_ids_filename, "w", encoding='utf-8') as f:
         json.dump(concepts_dict, f, ensure_ascii=False, indent=4)
+
+
+def merge_concepts(concepts_filename_input, concepts_merged_filename):
+    with open(concepts_filename_input, 'r', encoding='utf-8') as f:
+        concepts = json.load(f)
+
+    def get_word_set(words):
+        return {word['value'].lower() for word in words}
+
+    unique_concepts = defaultdict(list)
+
+    for concept in concepts:
+        words = concept['words']
+        word_set = frozenset(get_word_set(words))
+        unique_concepts[word_set].append(concept)
+
+    merged_concepts = []
+
+    for word_set, concepts_to_merge in unique_concepts.items():
+        if len(concepts_to_merge) > 1:
+            print(f"Merging concepts with words: {', '.join(word_set)}")
+            merged_concept = concepts_to_merge[0].copy()
+
+            for concept in concepts_to_merge[1:]:
+                # Extend conceptIds
+                merged_concept['conceptIds'].extend(concept['conceptIds'])
+
+                # Merge definitions and notes
+                merged_concept['definitions'].extend(concept.get('definitions', []))
+                merged_concept['notes'].extend(concept.get('notes', []))
+
+                if concept['domains'] != merged_concept['domains']:
+                    print(f"Conflict found when merging concepts with IDs {merged_concept['conceptIds']}: different domains")
+            merged_concepts.append(merged_concept)
+        else:
+            merged_concepts.append(concepts_to_merge[0])
+
+    with open(concepts_merged_filename, 'w', encoding='utf-8') as f:
+        json.dump(merged_concepts, f, ensure_ascii=False, indent=4)
+
+    return merged_concepts
