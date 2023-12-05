@@ -57,7 +57,7 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
 
         # Creating Concept instance
         concept = Concept(
-            datasetCode='mat-test',
+            datasetCode='ma-05-12',
             manualEventOn=None,
             manualEventBy=None,
             firstCreateEventOn=None,
@@ -76,6 +76,8 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
     concepts_dict = [asdict(concept) for concept in list_of_concepts]
     with open(concepts_without_ids_filename, "w", encoding='utf-8') as f:
         json.dump(concepts_dict, f, ensure_ascii=False, indent=4)
+
+
 
 
 def merge_concepts(concepts_filename_input, concepts_merged_filename):
@@ -106,6 +108,15 @@ def merge_concepts(concepts_filename_input, concepts_merged_filename):
                 # Merge definitions and notes
                 merged_concept['definitions'].extend(concept.get('definitions', []))
                 merged_concept['notes'].extend(concept.get('notes', []))
+
+                # Merge lexemeNotes for each word
+                for word in merged_concept['words']:
+                    all_lexeme_notes = word.get('lexemeNotes', [])
+                    for c in concepts_to_merge:
+                        matching_words = [c_word for c_word in c['words'] if c_word['value'].lower() == word['value'].lower() and c_word['lang'] == word['lang']]
+                        for mw in matching_words:
+                            all_lexeme_notes.extend(mw.get('lexemeNotes', []))
+                    word['lexemeNotes'] = all_lexeme_notes
 
                 if concept['domains'] != merged_concept['domains']:
                     print(f"Conflict found when merging concepts with IDs {merged_concept['conceptIds']}: different domains")
