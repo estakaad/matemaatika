@@ -1,7 +1,7 @@
 import parse
 
 # Parse Excel
-mat_excel = 'files/mat.xlsx'
+mat_excel = 'files/matemaatika2023.xlsx'
 concepts_without_ids = 'files/output.json'
 concepts_merged = 'files/output_merged.json'
 concepts_with_ids = ''

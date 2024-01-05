@@ -24,7 +24,7 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
 
         # Notes
         notes = []
-        for note_index in range(1, 3):
+        for note_index in range(1, 4):
             note_key = f"NOTE {note_index}"
             if pd.notna(row[note_key]):
                 notes.append(Note(value=row[note_key], lang="est", publicity=False))
@@ -34,8 +34,9 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
         for lang_code, lang in [("ET", "est"), ("EN", "eng"), ("RU", "rus")]:
             term_range = range(1, 4) if lang_code == "RU" else range(1, 5)
 
-            terms = [row[f"TERM {lang_code} {i}"].strip() for i in term_range if pd.notna(row[f"TERM {lang_code} {i}"])]
-            terms = [term for term in terms if term]  # This will filter out empty strings as well
+            terms = [str(row[f"TERM {lang_code} {i}"]).strip() for i in term_range if
+                     pd.notna(row[f"TERM {lang_code} {i}"])]
+            terms = [term for term in terms if term]
 
             lexemenote = None
             if lang_code == "ET" and len(terms) == 1:
@@ -44,8 +45,8 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
                     lexemenote = Lexemenote(value=lexemenote_value.strip(), lang=lang, publicity=True)
 
             for term in terms:
-                if term:  # Check if the term is not an empty string
-                    word = Word(value=term, lang=lang, lexemePublicity=True)
+                if term:
+                    word = Word(valuePrese=term, lang=lang, lexemePublicity=True)
                     if lexemenote:
                         word.lexemeNotes.append(lexemenote)
                     words.append(word)
@@ -57,7 +58,7 @@ def parse_excel(excel_filename, concepts_without_ids_filename):
 
         # Creating Concept instance
         concept = Concept(
-            datasetCode='ma-05-12',
+            datasetCode='mat',
             manualEventOn=None,
             manualEventBy=None,
             firstCreateEventOn=None,
@@ -85,7 +86,7 @@ def merge_concepts(concepts_filename_input, concepts_merged_filename):
         concepts = json.load(f)
 
     def get_word_set(words):
-        return {word['value'].lower() for word in words}
+        return {word['valuePrese'].lower() for word in words}
 
     unique_concepts = defaultdict(list)
 
@@ -113,7 +114,7 @@ def merge_concepts(concepts_filename_input, concepts_merged_filename):
                 for word in merged_concept['words']:
                     all_lexeme_notes = word.get('lexemeNotes', [])
                     for c in concepts_to_merge:
-                        matching_words = [c_word for c_word in c['words'] if c_word['value'].lower() == word['value'].lower() and c_word['lang'] == word['lang']]
+                        matching_words = [c_word for c_word in c['words'] if c_word['valuePrese'].lower() == word['valuePrese'].lower() and c_word['lang'] == word['lang']]
                         for mw in matching_words:
                             all_lexeme_notes.extend(mw.get('lexemeNotes', []))
                     word['lexemeNotes'] = all_lexeme_notes
